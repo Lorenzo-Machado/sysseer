@@ -8,7 +8,7 @@ Inspired by the fact that Windows has no decent CLI system monitor that doesnt r
 
 | path | description |
 |------|-------------|
-| / | system overview (host, os, cpu, ram, disks, cpu load) |
+| / | HTML dashboard with live auto-refresh (1s) |
 | /ps | list running processes |
 | /ps/verbose | processes with memory usage |
 | /net | network interfaces and gateway |
@@ -39,6 +39,8 @@ curl http://localhost:9090/monitor
 ```
 
 ## v2 changelog
+
+- HTML dashboard at / with auto-refresh every 1s via JavaScript
 
 - bind to loopback only (127.0.0.1) instead of INADDR_ANY
 - socket timeouts (5s) to prevent hanging on slow clients

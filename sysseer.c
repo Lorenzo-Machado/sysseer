@@ -24,41 +24,7 @@ static const char* RESP_OK_404 = "HTTP/1.1 404 Not Found\r\nContent-Type: text/p
 static const char* RESP_OK_413 = "HTTP/1.1 413 Too Long\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n413 request too long";
 static const char* RESP_OK_500 = "HTTP/1.1 500 Internal Server Error\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n500 internal error";
 
-typedef NTSTATUS (NTAPI *pNtQuerySystemInformation)(
-    ULONG, PVOID, ULONG, PULONG);
 
-typedef struct {
-    ULONG NextEntryOffset;
-    ULONG NumberOfThreads;
-    LARGE_INTEGER SpareLi1;
-    LARGE_INTEGER SpareLi2;
-    LARGE_INTEGER SpareLi3;
-    LARGE_INTEGER CreateTime;
-    LARGE_INTEGER UserTime;
-    LARGE_INTEGER KernelTime;
-    UNICODE_STRING ImageName;
-    KPRIORITY BasePriority;
-    HANDLE UniqueProcessId;
-    HANDLE InheritedFromUniqueProcessId;
-    ULONG HandleCount;
-    ULONG SessionId;
-    ULONG_PTR PageFaultCount;
-    SIZE_T PeakWorkingSetSize;
-    SIZE_T WorkingSetSize;
-    SIZE_T QuotaPeakPagedPoolUsage;
-    SIZE_T QuotaPagedPoolUsage;
-    SIZE_T QuotaPeakNonPagedPoolUsage;
-    SIZE_T QuotaNonPagedPoolUsage;
-    SIZE_T PagefileUsage;
-    SIZE_T PeakPagefileUsage;
-    SIZE_T PrivatePageCount;
-    LARGE_INTEGER ReadOperationCount;
-    LARGE_INTEGER WriteOperationCount;
-    LARGE_INTEGER OtherOperationCount;
-    LARGE_INTEGER ReadTransferCount;
-    LARGE_INTEGER WriteTransferCount;
-    LARGE_INTEGER OtherTransferCount;
-} SYSTEM_PROCESS_INFORMATION;
 
 typedef struct {
     CRITICAL_SECTION lock;
@@ -250,6 +216,50 @@ static void handle_status(SOCKET s) {
     else send_response(s, RESP_OK_500);
 }
 
+
+static void handle_dashboard(SOCKET s) {
+    const char* html =
+        "HTTP/1.1 200 OK\r\n"
+        "Content-Type: text/html\r\n"
+        "Connection: close\r\n"
+        "X-Content-Type-Options: nosniff\r\n"
+        "\r\n"
+        "<!DOCTYPE html>"
+        "<html><head>"
+        "<meta charset=utf-8>"
+        "<meta name=viewport content='width=device-width,initial-scale=1'>"
+        "<title>sysseer</title>"
+        "<style>"
+        "*{margin:0;padding:0;box-sizing:border-box}"
+        "body{font-family:system-ui,-apple-system,sans-serif;background:#0d1117;color:#c9d1d9;padding:20px}"
+        ".card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:20px;margin-bottom:12px}"
+        "h1{font-size:1.4rem;color:#58a6ff;margin-bottom:16px}"
+        ".row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #21262d}"
+        ".label{color:#8b949e}.value{color:#c9d1d9;font-weight:500}"
+        ".up{color:#3fb950}.mid{color:#d29922}.down{color:#f85149}"
+        "</style>"
+        "</head><body>"
+        "<h1>sysseer</h1>"
+        "<div id=info class=card><div class=row><span>loading...</span></div></div>"
+        "<script>"
+        "setInterval(async()=>{"
+        "try{"
+        "let r=await fetch('/status');"
+        "let t=await r.text();"
+        "let lines=t.split('\\n').filter(l=>l.trim());"
+        "let html=lines.map(l=>{"
+        "let parts=l.split(/\\s{2,}/);"
+        "if(parts.length<2) return `<div class=row><span>$\{l}</span></div>`;"
+        "return `<div class=row><span class=label>$\{parts[0]}</span><span class=value>$\{parts.slice(1).join(' ')}</span></div>`;"
+        "}).join('');"
+        "document.getElementById('info').innerHTML=html;"
+        "}catch(e){}"
+        "},1000);"
+        "</script>"
+        "</body></html>";
+    send_response(s, html);
+}
+
 static void handle_ps(SOCKET s, int verbose) {
     char resp[MAX_RESP];
     int offset = snprintf(resp, sizeof(resp),
@@ -379,7 +389,9 @@ static void handle_req(SOCKET s) {
     char* qmark = strchr(path, '?');
     if (qmark) *qmark = 0;
 
-    if (strcmp(path, "/") == 0 || strcmp(path, "/status") == 0) {
+    if (strcmp(path, "/") == 0) {
+        handle_dashboard(s);
+    } else if (strcmp(path, "/status") == 0) {
         handle_status(s);
     } else if (strcmp(path, "/ps") == 0) {
         handle_ps(s, 0);
