@@ -37,6 +37,19 @@ typedef struct {
 
 static CpuMonitor g_cpu = {0};
 
+static void seed_cpu_monitor(void) {
+    FILETIME idle, kernel, user;
+    if (GetSystemTimes(&idle, &kernel, &user)) {
+        EnterCriticalSection(&g_cpu.lock);
+        g_cpu.prevIdle = ((ULONGLONG)idle.dwHighDateTime << 32) | idle.dwLowDateTime;
+        g_cpu.prevKernel = ((ULONGLONG)kernel.dwHighDateTime << 32) | kernel.dwLowDateTime;
+        g_cpu.prevUser = ((ULONGLONG)user.dwHighDateTime << 32) | user.dwLowDateTime;
+        g_cpu.initialized = 1;
+        g_cpu.lastCpu = 5.0;
+        LeaveCriticalSection(&g_cpu.lock);
+    }
+}
+
 static int safe_send(SOCKET s, const char* data, int len) {
     if (!data || len <= 0) return -1;
     int sent = 0;
@@ -160,7 +173,7 @@ static void handle_status(SOCKET s) {
         RegCloseKey(hKey);
     }
 
-    double cpu_load = 0.0;
+    double cpu_load = g_cpu.lastCpu;
     FILETIME idle, kernel, user;
     if (GetSystemTimes(&idle, &kernel, &user)) {
         EnterCriticalSection(&g_cpu.lock);
@@ -174,12 +187,8 @@ static void handle_status(SOCKET s) {
             ULONGLONG total = kernelDiff + userDiff;
             if (total > 0) {
                 cpu_load = 100.0 - (100.0 * (double)idleDiff / total);
-                g_cpu.lastCpu = cpu_load;
-            } else {
-                cpu_load = g_cpu.lastCpu;
             }
-        } else {
-            cpu_load = g_cpu.lastCpu;
+            g_cpu.lastCpu = cpu_load;
         }
         g_cpu.prevIdle = nowIdle;
         g_cpu.prevKernel = nowKernel;
@@ -203,7 +212,7 @@ static void handle_status(SOCKET s) {
         "os:       Windows %d.%d build %d\n"
         "arch:     %s\n"
         "cpu:      %d cores, ~%d MHz\n"
-        "cpu load: %.1f%%\n"
+        "cpu load:  %.1f%%\n"
         "ram:      %s\n"
         "disks:    %s\n",
         compName, userName, get_time_str(),
@@ -453,6 +462,7 @@ int main(void) {
     }
 
     InitializeCriticalSection(&g_cpu.lock);
+    seed_cpu_monitor();
 
     printf("[sysseer] listening on http://localhost:%d\n", PORT);
     printf("[sysseer] pid %d\n", GetCurrentProcessId());
