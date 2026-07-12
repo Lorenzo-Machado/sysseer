@@ -192,6 +192,8 @@ static void handle_status(SOCKET s) {
         "HTTP/1.1 200 OK\r\n"
         "Content-Type: text/plain\r\n"
         "Connection: close\r\n"
+        "Cache-Control: no-cache, no-store, must-revalidate\r\n"
+        "Pragma: no-cache\r\n"
         "X-Content-Type-Options: nosniff\r\n"
         "\r\n"
         "=== sysseer v2.0 ===\n"
