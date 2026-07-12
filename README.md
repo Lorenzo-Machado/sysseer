@@ -38,10 +38,16 @@ curl http://localhost:9090/ps
 curl http://localhost:9090/monitor
 ```
 
-## v2 changelog
+## v2.1 changelog
+
+- cache-control headers to prevent browser caching
+- cache: no-store on fetch calls
+- LIVE indicator and timestamp on dashboard
+- dashboard JS rewritten for reliability
+
+## v2.0 changelog
 
 - HTML dashboard at / with auto-refresh every 1s via JavaScript
-
 - bind to loopback only (127.0.0.1) instead of INADDR_ANY
 - socket timeouts (5s) to prevent hanging on slow clients
 - request size limit to prevent resource exhaustion
